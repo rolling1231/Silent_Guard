@@ -116,31 +116,33 @@ class _SpeechRecognizerPageState extends State<SpeechRecognizerPage> {
   }
 
   // =======================================================
-  // 6. 음성 인식 결과 처리
+  // 6. 음성 인식 결과 처리 (정규화 개선판)
   // =======================================================
   void _onSpeechResult(result) {
     if (result.finalResult) {
       String recognizedWords = result.recognizedWords.toLowerCase().trim();
 
-      if (recognizedWords.isEmpty) {
-        print('인식된 단어 없음, 다시 감시 재시작');
-        Future.delayed(const Duration(milliseconds: 300), _startListening);
-        return;
-      }
+      // ⚙️ [핵심 추가] 공백/특수문자 제거 → 비교 정확도 향상
+      String normalized = recognizedWords
+          .replaceAll(RegExp(r'\s+'), '') // 모든 공백 제거
+          .replaceAll(RegExp(r'[^\uac00-\ud7a3a-z0-9]'), ''); // 한글/영문/숫자 외 제거
 
-      print('인식된 음성: $recognizedWords');
+      print('인식된 원문: $recognizedWords');
+      print('정규화된 결과: $normalized');
 
-      if (recognizedWords.contains('살려주세요')) {
+      if (normalized.contains('살려주세요')) {
         _speechToText.stop();
 
         print('---------------------------');
         print('        음성인식완료        ');
         print('---------------------------');
 
-        // TODO: 여기서 HTTP 전송 또는 알림 로직 추가 가능
+        // TODO: 여기에 HTTP 요청이나 알림 전송 로직 추가
+      } else if (normalized.isEmpty) {
+        print('인식된 단어 없음 → 감시 재시작');
+        Future.delayed(const Duration(milliseconds: 300), _startListening);
       } else {
-        print('키워드 ("살려주세요")가 아닌 음성 인식: "$recognizedWords". 딜레이 후 감시 재시작합니다.');
-
+        print('키워드("살려주세요") 아님: "$recognizedWords" → 감시 재시작');
         Future.delayed(const Duration(milliseconds: 300), _startListening);
       }
     }
